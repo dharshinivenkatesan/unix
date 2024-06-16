@@ -1,0 +1,53 @@
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[]) {
+    // Check if the filename is provided as a command-line argument
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    // Open the file
+    int fd = open(argv[1], O_RDONLY);
+    if (fd == -1) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Move the file offset to the end of the file to get the file size
+    off_t file_size = lseek(fd, 0, SEEK_END);
+    if (file_size == -1) {
+        perror("Error determining file size");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    // Read and print the file content in reverse order
+    char ch;
+    for (off_t i = 1; i <= file_size; i++) {
+        // Move the file offset one byte backward
+        if (lseek(fd, -i, SEEK_END) == -1) {
+            perror("Error seeking in file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Read one character
+        if (read(fd, &ch, 1) != 1) {
+            perror("Error reading file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Print the character
+        putchar(ch);
+    }
+
+    // Close the file
+    close(fd);
+
+    return 0;
+}
