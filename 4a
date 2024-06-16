@@ -1,0 +1,50 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main() {
+    char target[] = "target_file.txt";
+    char soft_link[] = "soft_link.txt";
+    char hard_link[] = "hard_link.txt";
+
+    // Create target file
+    FILE *fp = fopen(target, "w");
+    if (fp == NULL) {
+        perror("Error creating target file");
+        return EXIT_FAILURE;
+    }
+    fprintf(fp, "This is the target file.\n");
+    fclose(fp);
+
+    // Create soft link
+    if (symlink(target, soft_link) == -1) {
+        perror("Error creating symbolic link");
+        return EXIT_FAILURE;
+    }
+
+    // Create hard link
+    if (link(target, hard_link) == -1) {
+        perror("Error creating hard link");
+        return EXIT_FAILURE;
+    }
+
+    // Print information about the links
+    printf("Soft link (%s):\n", soft_link);
+    system("ls -l soft_link.txt");
+
+    printf("\nHard link (%s):\n", hard_link);
+    system("ls -l hard_link.txt");
+
+    // Remove the files
+    if (unlink(soft_link) == -1) {
+        perror("Error removing symbolic link");
+    }
+    if (unlink(hard_link) == -1) {
+        perror("Error removing hard link");
+    }
+    if (unlink(target) == -1) {
+        perror("Error removing target file");
+    }
+
+    return 0;
+}
