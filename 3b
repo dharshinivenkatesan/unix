@@ -1,63 +1,87 @@
-#include <fcntl.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
+#include <time.h>
 
-// Function to print file flags
-void print_file_flags(int fd) {
-    int flags = fcntl(fd, F_GETFL);
-    if (flags == -1) {
-        perror("Error getting file flags");
+// Function to list files in a directory with selected attributes
+void list_files(const char *dir_name) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+    struct passwd *pwd;
+    struct group *grp;
+    char datetime[100];
+
+    // Open directory
+    dir = opendir(dir_name);
+    if (dir == NULL) {
+        perror("Error opening directory");
         exit(EXIT_FAILURE);
     }
 
-    // Print access mode
-    int accessMode = flags & O_ACCMODE;
-    switch (accessMode) {
-        case O_RDONLY:
-            printf("Access mode: Read only\n");
-            break;
-        case O_WRONLY:
-            printf("Access mode: Write only\n");
-            break;
-        case O_RDWR:
-            printf("Access mode: Read/Write\n");
-            break;
-        default:
-            printf("Unknown access mode\n");
-            break;
+    // Read directory entries
+    while ((entry = readdir(dir)) != NULL) {
+        char path[PATH_MAX];
+        snprintf(path, PATH_MAX, "%s/%s", dir_name, entry->d_name);
+
+        // Get file stats
+        if (stat(path, &file_stat) == -1) {
+            perror("Error getting file stats");
+            continue;
+        }
+
+        // Print selected attributes
+        printf("%ld ", (long)file_stat.st_ino);   // Inode number
+        printf("%lu ", (unsigned long)file_stat.st_size);  // File size
+        printf("%lo ", (unsigned long)file_stat.st_mode);  // File mode (permissions)
+
+        // Number of hard links
+        printf("%ld ", (long)file_stat.st_nlink);
+
+        // Owner user and group
+        pwd = getpwuid(file_stat.st_uid);
+        if (pwd != NULL) {
+            printf("%s ", pwd->pw_name);  // Owner user name
+        } else {
+            printf("%d ", file_stat.st_uid);  // Fall back to UID if user not found
+        }
+
+        grp = getgrgid(file_stat.st_gid);
+        if (grp != NULL) {
+            printf("%s ", grp->gr_name);  // Owner group name
+        } else {
+            printf("%d ", file_stat.st_gid);  // Fall back to GID if group not found
+        }
+
+        // Last modification time
+        strftime(datetime, sizeof(datetime), "%b %d %H:%M", localtime(&file_stat.st_mtime));
+        printf("%s ", datetime);
+
+        // File name
+        printf("%s\n", entry->d_name);
     }
 
-    // Print additional flags
-    if (flags & O_APPEND) {
-        printf("Flag: Append\n");
-    }
-    if (flags & O_NONBLOCK) {
-        printf("Flag: Non-blocking\n");
-    }
-    if (flags & O_SYNC) {
-        printf("Flag: Synchronous writes\n");
-    }
-    if (flags & O_DSYNC) {
-        printf("Flag: Synchronous data writes\n");
-    }
-    if (flags & O_RSYNC) {
-        printf("Flag: Synchronous reads\n");
-    }
+    // Close directory
+    closedir(dir);
 }
 
 int main(int argc, char *argv[]) {
-    // Check if file descriptor is provided as a command-line argument
+    // Check if directory path is provided as a command-line argument
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s <file_descriptor>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <directory_path>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    // Convert the argument to an integer
-    int fd = atoi(argv[1]);
+    // Print header
+    printf("Inode   Size   Mode       Links  Owner  Group  Last Modified  Name\n");
 
-    // Print file flags
-    print_file_flags(fd);
+    // List files in the specified directory
+    list_files(argv[1]);
 
     return 0;
 }
