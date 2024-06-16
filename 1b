@@ -1,0 +1,80 @@
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+
+int main() {
+    // Open the file
+    int fd = open("shared_file.txt", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Write initial content to the file
+    if (write(fd, "Hello, ", 7) != 7) {
+        perror("Error writing to file");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    // Fork to create a child process
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("Error forking");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) { // Child process
+        // Write to the file
+        if (write(fd, "Child", 5) != 5) {
+            perror("Child: Error writing to file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Move the file offset back to the beginning
+        lseek(fd, 0, SEEK_SET);
+
+        // Read and display the file content
+        char buffer[13];
+        if (read(fd, buffer, 12) != 12) {
+            perror("Child: Error reading file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        buffer[12] = '\0';
+        printf("Child reads: %s\n", buffer);
+
+        close(fd);
+    } else { // Parent process
+        // Wait for the child to finish
+        wait(NULL);
+
+        // Write to the file
+        if (write(fd, "Parent", 6) != 6) {
+            perror("Parent: Error writing to file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+
+        // Move the file offset back to the beginning
+        lseek(fd, 0, SEEK_SET);
+
+        // Read and display the file content
+        char buffer[19];
+        if (read(fd, buffer, 18) != 18) {
+            perror("Parent: Error reading file");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        buffer[18] = '\0';
+        printf("Parent reads: %s\n", buffer);
+
+        close(fd);
+    }
+
+    return 0;
+}
